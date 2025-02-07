@@ -1,9 +1,30 @@
 const express = require('express');
+const app = express();
 const cors = require('cors');
 const mongoose = require('mongoose');
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+
 require('dotenv').config();
 
-const app = express();
+const users = new Map();
+
+io.on('connection', (socket) => {
+    socket.on('join', (userData) => {
+        users.set(socket.id, userData);
+        io.emit('userList', Array.from(users.values()));
+    });
+
+    socket.on('sendMessage', (message) => {
+        io.emit('message', message);
+    });
+
+    socket.on('disconnect', () => {
+        users.delete(socket.id);
+        io.emit('userList', Array.from(users.values()));
+    });
+});
+
 
 app.use(cors({
     origin: process.env.CLIENT_URL,
