@@ -18,6 +18,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
         if (response.ok) {
             alert('Login successful!');
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
             window.location.href = '/chat';
         } else {
             alert(data.message || 'Login failed');
