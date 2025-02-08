@@ -39,18 +39,9 @@ messageForm.addEventListener('submit', (e) => {
 });
 
 function addMessage(message) {
-    const messageDiv = document.createElement('div');
     const isOwnMessage = message.sender === currentUser.name;
-    
-    messageDiv.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`;
-    messageDiv.innerHTML = `
-        <div class="max-w-[70%] ${isOwnMessage ? 'bg-blue-500 text-white' : 'bg-gray-200'} rounded-lg px-4 py-2">
-            <div class="text-sm font-semibold">${message.sender}</div>
-            <div>${message.text}</div>
-        </div>
-    `;
-    
-    messagesContainer.appendChild(messageDiv);
+    const messageHTML = createMessage(message, isOwnMessage);
+    messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
@@ -60,15 +51,8 @@ function updateUserList(users) {
     
     users.forEach(user => {
         if (user.id !== currentUser.id) {
-            const userDiv = document.createElement('div');
-            userDiv.className = 'flex items-center space-x-3 p-2 hover:bg-gray-100 rounded-lg cursor-pointer';
-            userDiv.innerHTML = `
-                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    <i class="fas fa-user text-blue-500"></i>
-                </div>
-                <div class="font-medium">${user.name}</div>
-            `;
-            usersList.appendChild(userDiv);
+            const userHTML = createUserItem(user);
+            usersList.insertAdjacentHTML('beforeend', userHTML);
         }
     });
 }
