@@ -1,14 +1,36 @@
-const User = require('./User');
-const Message = require('./Message');
+const { Sequelize } = require('sequelize');
+
+const sequelize = new Sequelize(
+  process.env.MYSQL_DATABASE || 'database',
+  process.env.MYSQL_USERNAME || 'root',
+  process.env.MYSQL_PASSWORD || '',
+  {
+    host: process.env.MYSQL_HOST || 'localhost',
+    dialect: 'mysql',
+    logging: console.log,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  }
+);
+
+const db = {};
+
+db.Sequelize = Sequelize;
+db.sequelize = sequelize;
+
+db.users = require('./user')(sequelize, Sequelize);
+db.groups = require('./group')(sequelize, Sequelize);
+db.messages = require('./message')(sequelize, Sequelize);
+db.userGroups = require('./userGroups')(sequelize, Sequelize);
 
 // Associations
-Message.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
-Message.belongsTo(User, { as: 'receiver', foreignKey: 'receiverId' });
+db.users.belongsToMany(db.groups, { through: db.userGroups });
+db.groups.belongsToMany(db.users, { through: db.userGroups });
+db.messages.belongsTo(db.users);
+db.messages.belongsTo(db.groups);
 
-User.hasMany(Message, { as: 'sentMessages', foreignKey: 'senderId' });
-User.hasMany(Message, { as: 'receivedMessages', foreignKey: 'receiverId' });
-
-module.exports = {
-    User,
-    Message
-};
+module.exports = db;

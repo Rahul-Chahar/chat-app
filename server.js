@@ -1,155 +1,90 @@
-const express = require('express');
-const http = require('http');
-const socketIO = require('socket.io');
-const cors = require('cors');
-const sequelize = require('./config/database');
-const authRoutes = require('./routes/authRoutes');
-const messageRoutes = require('./routes/messageRoutes');
-const Message = require('./models/Message');
-const User = require('./models/User');
 require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const db = require('./models');
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIO(server);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
-// Middleware
 app.use(cors());
+
+// WebSocket connection handling
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  socket.on('join-group', (groupId) => {
+    socket.join(`group-${groupId}`);
+  });
+
+  socket.on('leave-group', (groupId) => {
+    socket.leave(`group-${groupId}`);
+  });
+
+  socket.on('send-message', (message) => {
+    io.to(`group-${message.groupId}`).emit('new-message', message);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/messages', messageRoutes);
-
-// Socket.IO connection handling
-io.on('connection', (socket) => {
-    console.log('A user connected');
-
-    // Handle user joining
-    socket.on('join', async (userData) => {
-        console.log('User joined:', userData.name);
-        socket.userId = userData.userId;
-        socket.userName = userData.name;
-
-        // Send user list to all clients
-        io.emit('userList', Array.from(io.sockets.sockets.values())
-            .map(s => ({ id: s.userId, name: s.userName }))
-            .filter(user => user.id));
-
-        // Send existing messages to newly joined user
-        try {
-            const messages = await Message.findAll({
-                include: [{
-                    model: User,
-                    as: 'sender',
-                    attributes: ['id', 'name']
-                }],
-                order: [['createdAt', 'ASC']],
-                limit: 100 // Limit to last 100 messages
-            });
-
-            socket.emit('previousMessages', messages);
-        } catch (error) {
-            console.error('Error fetching messages:', error);
-        }
-    });
-
-    // Handle new messages
-    socket.on('sendMessage', async (data) => {
-        try {
-            // Save message to database
-            const newMessage = await Message.create({
-                message: data.text,
-                senderId: socket.userId
-            });
-
-            // Fetch complete message with sender details
-            const messageWithSender = await Message.findOne({
-                where: { id: newMessage.id },
-                include: [{
-                    model: User,
-                    as: 'sender',
-                    attributes: ['id', 'name']
-                }]
-            });
-
-            // Broadcast message to all clients
-            io.emit('message', {
-                id: messageWithSender.id,
-                text: messageWithSender.message,
-                sender: socket.userName,
-                senderId: socket.userId,
-                timestamp: messageWithSender.createdAt
-            });
-
-            console.log('Message saved and broadcast:', data.text);
-        } catch (error) {
-            console.error('Error saving/sending message:', error);
-            socket.emit('messageError', { error: 'Failed to send message' });
-        }
-    });
-
-    // Handle disconnection
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.userName);
-        io.emit('userList', Array.from(io.sockets.sockets.values())
-            .map(s => ({ id: s.userId, name: s.userName }))
-            .filter(user => user.id));
-    });
-
-    // Heartbeat to maintain connection
-    socket.on('heartbeat', () => {
-        socket.emit('heartbeat-ack');
-    });
-});
-
-// Database connection and server start
-const PORT = process.env.PORT || 3000;
-
-async function startServer() {
-    try {
-        // Test database connection
-        await sequelize.authenticate();
-        console.log('Database connection established successfully');
-
-        // Sync database models
-        await sequelize.sync();
-        console.log('Database models synchronized');
-
-        // Start server
-        server.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-        });
-    } catch (error) {
-        console.error('Unable to start server:', error);
-    }
+// Create uploads directory if it doesn't exist
+const fs = require('fs');
+const uploadsDir = path.join(__dirname, process.env.UPLOAD_DIR || 'public/uploads');
+if (!fs.existsSync(uploadsDir)){
+    fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-startServer();
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/groups', require('./routes/groups'));
+app.use('/api/messages', require('./routes/messages'));
 
-// Handle server shutdown gracefully
-process.on('SIGTERM', async () => {
-    console.log('Received SIGTERM signal');
-    
-    // Close server
-    server.close(() => {
-        console.log('HTTP server closed');
+const PORT = process.env.PORT || 8000;
+
+// Database connection and server startup
+const startServer = async () => {
+  try {
+    console.log('Attempting to connect to database...');
+    await db.sequelize.authenticate();
+    console.log('Database connection has been established successfully.');
+
+    console.log('Synchronizing database schema...');
+    await db.sequelize.sync();
+    console.log('Database synchronized successfully.');
+
+    http.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(`Server URL: http://0.0.0.0:${PORT}`);
     });
-
-    try {
-        // Close database connection
-        await sequelize.close();
-        console.log('Database connection closed');
-        process.exit(0);
-    } catch (error) {
-        console.error('Error during shutdown:', error);
-        process.exit(1);
+  } catch (error) {
+    console.error('Database connection error:', error.message);
+    if (error.original) {
+      console.error('Error details:', {
+        code: error.original.code,
+        errno: error.original.errno,
+        sqlMessage: error.original.sqlMessage,
+        sqlState: error.original.sqlState
+      });
     }
-});
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-    process.exit(1);
-});
+    // Wait for 5 seconds before retrying
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(startServer, 5000);
+  }
+};
+
+// Start the server
+console.log('Starting server...');
+startServer();
