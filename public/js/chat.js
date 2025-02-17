@@ -329,17 +329,12 @@ async function makeAdmin(groupId, userId) {
             },
             body: JSON.stringify({ userId })
         });
-
-        if (response.ok) {
-            alert('User promoted to admin');
-            manageGroup(groupId); // Refresh the modal
-        } else {
-            const data = await response.json();
-            alert(data.msg || 'Error making admin');
-        }
+        if (!response.ok) throw new Error((await response.json()).msg);
+        alert('User promoted to admin');
+        manageGroup(groupId);
     } catch (err) {
         console.error(err);
-        alert('Error making admin');
+        alert(err.message || 'Error making admin');
     }
 }
 
