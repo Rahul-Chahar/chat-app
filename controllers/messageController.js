@@ -3,10 +3,7 @@ const db = require('../models');
 
 async function isGroupMember(userId, groupId) {
     const membership = await db.userGroups.findOne({
-        where: {
-            userId,
-            groupId
-        }
+        where: { userId, groupId }
     });
     return !!membership;
 }
@@ -29,7 +26,8 @@ exports.createMessage = async (req, res) => {
         };
 
         if (req.file) {
-            messageData.fileUrl = `/uploads/${req.file.filename}`;
+            const key = `files/${Date.now()}-${req.file.originalname}`;
+            messageData.fileUrl = await uploadFile(req.file, key);
             messageData.fileType = req.file.mimetype;
         }
 
