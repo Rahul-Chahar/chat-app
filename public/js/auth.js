@@ -5,6 +5,16 @@ const toggleAuth = document.getElementById('toggle-auth');
 
 let isLoginMode = true;
 
+// Check token on page load
+window.addEventListener('load', () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        authContainer.classList.add('hidden');
+        chatContainer.classList.remove('hidden');
+        loadGroups();
+    }
+});
+
 toggleAuth.addEventListener('click', (e) => {
     e.preventDefault();
     isLoginMode = !isLoginMode;

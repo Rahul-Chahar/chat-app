@@ -92,6 +92,13 @@ async function selectGroup(group) {
 
 // Create message element
 function createMessageElement(message) {
+    if (!currentUserId) {
+        getCurrentUser().then(() => {
+            loadMessages();
+        });
+        return document.createElement('div');
+    }
+    
     const isOwnMessage = message.user.id === currentUserId;
     const div = document.createElement('div');
     div.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`;
@@ -143,7 +150,7 @@ function createMessageElement(message) {
     }
 
     const timestamp = document.createElement('div');
-    timestamp.className = 'text-xs text-gray-500 mt-1';
+    timestamp.className = `text-xs mt-1 ${isOwnMessage ? 'text-blue-100' : 'text-gray-500'}`;
     timestamp.textContent = new Date(message.timestamp).toLocaleString();
     messageContent.appendChild(timestamp);
 
@@ -382,7 +389,15 @@ async function removeMember(groupId, userId) {
     }
 }
 
+// Logout function
+function logout() {
+    localStorage.removeItem('token');
+    location.reload();
+}
+
 // Event listeners
+document.getElementById('logout-btn').addEventListener('click', logout);
+
 document.getElementById('message-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
