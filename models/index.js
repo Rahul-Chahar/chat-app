@@ -22,9 +22,9 @@ const db = {};
 db.Sequelize = Sequelize;
 db.sequelize = sequelize;
 
-db.users = require('./user')(sequelize, Sequelize);
+db.users = require('./User')(sequelize, Sequelize);
 db.groups = require('./group')(sequelize, Sequelize);
-db.messages = require('./message')(sequelize, Sequelize);
+db.messages = require('./Message')(sequelize, Sequelize);
 db.userGroups = require('./userGroups')(sequelize, Sequelize);
 
 // Associations
