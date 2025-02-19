@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const db = require('./models');
+const { archiveOldMessages } = require('./services/archiveService');
+const cron = require('node-cron');
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
@@ -34,6 +36,12 @@ app.use('/api/groups', require('./routes/groups'));
 app.use('/api/messages', require('./routes/messages'));
 
 const PORT = process.env.PORT || 8000;
+
+// Schedule message archiving every day at midnight
+cron.schedule('0 0 * * *', async () => {
+  console.log('Running daily message archive job');
+  await archiveOldMessages();
+});
 
 (async () => {
   try {
