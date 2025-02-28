@@ -1,5 +1,5 @@
-
 const db = require('../models');
+const { uploadFile } = require('../services/s3Service');
 
 async function isGroupMember(userId, groupId) {
     const membership = await db.userGroups.findOne({
@@ -26,9 +26,14 @@ exports.createMessage = async (req, res) => {
         };
 
         if (req.file) {
-            const key = `files/${Date.now()}-${req.file.originalname}`;
-            messageData.fileUrl = await uploadFile(req.file, key);
-            messageData.fileType = req.file.mimetype;
+            try {
+                const key = `files/${Date.now()}-${req.file.originalname}`;
+                messageData.fileUrl = await uploadFile(req.file, key);
+                messageData.fileType = req.file.mimetype;
+            } catch (fileError) {
+                console.error('File upload error:', fileError);
+                return res.status(400).json({ error: 'File upload failed: ' + fileError.message });
+            }
         }
 
         const message = await db.messages.create(messageData);

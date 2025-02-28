@@ -118,3 +118,123 @@ exports.getGroupMembers = async (req, res) => {
     res.status(500).send('Server error');
   }
 };
+
+exports.makeAdmin = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { userId } = req.body;
+    
+    // Check if requester is an admin
+    if (!await isGroupAdmin(req.user.id, groupId)) {
+      return res.status(403).json({ msg: 'Only admins can promote users' });
+    }
+
+    // Update user to admin in the group
+    const userGroup = await db.userGroups.findOne({
+      where: { 
+        userId: userId,
+        groupId: groupId
+      }
+    });
+
+    if (!userGroup) {
+      return res.status(404).json({ msg: 'User is not a member of this group' });
+    }
+
+    await userGroup.update({ isAdmin: true });
+    res.json({ msg: 'User promoted to admin successfully' });
+  } catch (err) {
+    console.error('Error making admin:', err);
+    res.status(500).json({ msg: 'Server error', error: err.message });
+  }
+};
+
+exports.removeAdmin = async (req, res) => {
+  try {
+    const { groupId, userId } = req.params;
+    
+    // Check if requester is an admin
+    if (!await isGroupAdmin(req.user.id, groupId)) {
+      return res.status(403).json({ msg: 'Only admins can demote users' });
+    }
+
+    // Prevent removing the last admin
+    const admins = await db.userGroups.findAll({
+      where: {
+        groupId: groupId,
+        isAdmin: true
+      }
+    });
+
+    if (admins.length <= 1 && admins[0].userId.toString() === userId) {
+      return res.status(400).json({ msg: 'Cannot remove the last admin of the group' });
+    }
+
+    // Update user to remove admin status
+    const userGroup = await db.userGroups.findOne({
+      where: { 
+        userId: userId,
+        groupId: groupId
+      }
+    });
+
+    if (!userGroup) {
+      return res.status(404).json({ msg: 'User is not a member of this group' });
+    }
+
+    await userGroup.update({ isAdmin: false });
+    res.json({ msg: 'Admin status removed successfully' });
+  } catch (err) {
+    console.error('Error removing admin:', err);
+    res.status(500).json({ msg: 'Server error', error: err.message });
+  }
+};
+
+exports.removeMember = async (req, res) => {
+  try {
+    const { groupId, userId } = req.params;
+    
+    // Check if requester is an admin
+    if (!await isGroupAdmin(req.user.id, groupId)) {
+      return res.status(403).json({ msg: 'Only admins can remove users' });
+    }
+
+    // Prevent removing yourself through this endpoint
+    if (req.user.id.toString() === userId) {
+      return res.status(400).json({ msg: 'Cannot remove yourself. Use leave group instead.' });
+    }
+
+    // Check if user is the last admin
+    const userGroup = await db.userGroups.findOne({
+      where: { 
+        userId: userId,
+        groupId: groupId
+      }
+    });
+
+    if (!userGroup) {
+      return res.status(404).json({ msg: 'User is not a member of this group' });
+    }
+
+    // If user is admin, check if they're the last admin
+    if (userGroup.isAdmin) {
+      const admins = await db.userGroups.findAll({
+        where: {
+          groupId: groupId,
+          isAdmin: true
+        }
+      });
+
+      if (admins.length <= 1) {
+        return res.status(400).json({ msg: 'Cannot remove the last admin of the group' });
+      }
+    }
+
+    // Remove user from group
+    await userGroup.destroy();
+    res.json({ msg: 'User removed from group successfully' });
+  } catch (err) {
+    console.error('Error removing member:', err);
+    res.status(500).json({ msg: 'Server error', error: err.message });
+  }
+};
