@@ -38,6 +38,12 @@ app.use('/api/messages', require('./routes/messages'));
 const PORT = process.env.PORT || 8000;
 
 // Schedule message archiving every day at midnight
+cron.schedule('0 0 * * *', async () => {
+  console.log('Running daily message archive job');
+  await archiveOldMessages();
+});
+
+// Schedule file cleanup every week
 cron.schedule('0 0 * * 0', async () => {
   console.log('Running weekly file cleanup job');
   await cleanupOldFiles();
