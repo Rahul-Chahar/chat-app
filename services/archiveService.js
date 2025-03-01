@@ -2,7 +2,7 @@ const db = require('../models');
 const { Op } = require('sequelize');
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
-// Initialize S3 client if environment variables are set
+// Initialize S3 client if environment variables are set.
 let s3Client = null;
 if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_REGION) {
   s3Client = new S3Client({
